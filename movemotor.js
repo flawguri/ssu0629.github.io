@@ -22,6 +22,13 @@ let motorBatteryImg;
 let motorBatteryImgNow = 0;
 let introImg; // 시작 화면 이미지
 
+// 버튼 상태 이미지
+let buttonStartImg;
+let buttonStartOverImg;
+let buttonStartPressedImg;
+let buttonState = "normal"; // 버튼 상태: "normal", "over", "pressed"
+let buttonX, buttonY, buttonWidth, buttonHeight;
+
 // DOMContentLoaded 이벤트 리스너를 추가하여 HTML 문서가 완전히 로드된 후 onClick 함수를 버튼 클릭 이벤트에 연결
 document.addEventListener("DOMContentLoaded", function () {
   const activateButton = document.getElementById('activateButton');
@@ -107,10 +114,17 @@ function preload() {
   motorBgImg = loadImage("assets/motor_bg.png");
   introImg = loadImage("assets/intro.png"); // 시작 화면 이미지 파일 로드
 
+  // 버튼 이미지 불러오기
+  buttonStartImg = loadImage("assets/buttonStart.png");
+  buttonStartOverImg = loadImage("assets/buttonStartOver.png");
+  buttonStartPressedImg = loadImage("assets/buttonStartPressed.png");
+
   shared = partyLoadShared("shared", { x: 200, y: 200 });
   clickCount = partyLoadShared("clickCount", { value: 0 });
   guests = partyLoadGuestShareds();
   me = partyLoadMyShared({ accelerationChange: 0 });
+
+  neoDunggeunmoProFont = loadFont("assets/NeoDunggeunmoPro-Regular.ttf"); // 폰트 로드
 }
 
 // p5.js setup 함수로 캔버스 설정 및 초기 값 설정
@@ -129,26 +143,27 @@ function setup() {
   lastMotionTime = millis();
 
   game2 = new Motorgame();
+
+  // 버튼 위치 및 크기 설정
+  buttonX = windowWidth / 2 - 100;
+  buttonY = windowHeight / 2 + 150;
+  buttonWidth = 200;
+  buttonHeight = 50;
 }
 
 // 마우스를 클릭하면 공유 객체의 위치를 업데이트하고 클릭 수를 증가
 function mousePressed() {
   if (game2.gameState === "intro") {
     // 시작 화면에서 시작 버튼을 누르면 게임 시작
-    let buttonX = width / 2 - 100;
-    let buttonY = height / 2 + 50;
-    let buttonWidth = 200;
-    let buttonHeight = 50;
-
     if (mouseX > buttonX && mouseX < buttonX + buttonWidth && mouseY > buttonY && mouseY < buttonY + buttonHeight) {
-      game2.gameState = "playing";
+      buttonState = "pressed";
     }
   } else {
     shared.x = mouseX;
     shared.y = mouseY;
     clickCount.value++;
 
-    if (game2.gameState === "fail" || game2.gameState === "success") {
+    if (game2.gameState === "success") {
       let buttonX = width / 2 - 100;
       let buttonY = height / 2 + 50;
       let buttonWidth = 200;
@@ -161,6 +176,26 @@ function mousePressed() {
   }
 }
 
+function mouseReleased() {
+  if (game2.gameState === "intro" && buttonState === "pressed") {
+    if (mouseX > buttonX && mouseX < buttonX + buttonWidth && mouseY > buttonY && mouseY < buttonY + buttonHeight) {
+      game2.gameState = "playing";
+    }
+
+    buttonState = "normal";
+  }
+}
+
+function mouseMoved() {
+  if (game2.gameState === "intro") {
+    if (mouseX >= buttonX && mouseX <= buttonX + buttonWidth && mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
+      buttonState = "over";
+    } else {
+      buttonState = "normal";
+    }
+  }
+}
+
 // p5.js draw 함수로 매 프레임마다 호출되며 화면을 업데이트
 function draw() {
   background('#ffcccc'); // 배경색 설정
@@ -168,20 +203,23 @@ function draw() {
 
   if (game2.gameState === "intro") {
     // 시작 화면 표시
-    image(introImg, width / 2, height / 2, 400, 320);
-    fill(0);
-    rect(width / 2 - 100, height / 2 + 50, 200, 50);
-    fill(255);
-    textSize(32);
-    textAlign(CENTER, CENTER);
-    text("시작", width / 2, height / 2 + 75);
+    image(introImg, windowWidth / 2 - 400, windowHeight / 2 - 300, 800, 600);
+    let buttonImg;
+    if (buttonState === "normal") {
+      buttonImg = buttonStartImg;
+    } else if (buttonState === "over") {
+      buttonImg = buttonStartOverImg;
+    } else if (buttonState === "pressed") {
+      buttonImg = buttonStartPressedImg;
+    }
+
+    image(buttonImg, buttonX, buttonY, buttonWidth, buttonHeight);
   } else {
     // 게임 화면 표시
     // 애니메이션 배경 그리기
     noSmooth();
     noStroke();
-    imageMode(CENTER);
-    image(motorBgImg, width / 2, height / 2, 400, 320); // 원본 이미지 해상도는 100*80
+    image(motorBgImg, windowWidth / 2 - 400, windowHeight / 2 - 300, 800, 600); // 6.25배 확대
 
     totalAccelerationChange = 0; // 초기화
 
@@ -202,32 +240,27 @@ function draw() {
     game2.update(totalAccelerationChange);
     game2.display();
 
-    textAlign(CENTER, CENTER); // 텍스트 정렬 설정
-    text(clickCount.value, width / 2, height / 2); // 클릭 수를 화면에 표시
-    text(totalAccelerationChange.toFixed(2), width / 2, 100); // 합산된 가속도 변화를 화면에 표시
-
     // 모터 애니메이션
     if (game2.acceleration > 0 && game2.gameState === "playing") {
       motorImgNow = (motorImgNow + 1) % 8; // 애니메이션 프레임 업데이트
     }
     motorImg = motorImgs[motorImgNow + 1];
-    image(motorImg, width / 2, height / 2, 400, 320);
+    image(motorImg, windowWidth / 2 - 400, windowHeight / 2 - 300, 800, 600);
 
     // 배터리 애니메이션
     motorBatteryImgNow = int(1 + 7 * (game2.energy / 1000)); // 점수 0~1000 값을 1~8로 나오도록
     motorBatteryImg = motorBatteryImgs[motorBatteryImgNow];
-    image(motorBatteryImg, 0, height / 2, 400, 320);
+    image(motorBatteryImg, windowWidth / 2 - 455, windowHeight / 2 - 300, 800, 600);
   }
 }
 
 // 모터 돌리기 게임 class
 class Motorgame {
   constructor() {
-    this.propeller = new Propeller(width / 2, height / 2, 150);
     this.acceleration = 0;
     this.maxAcceleration = 60;
     this.energy = 0;
-    this.maxEnergy = 1000;
+    this.maxEnergy = 10000;
     this.gameState = "intro"; // 게임 상태: "intro", "playing", "success", "fail"
   }
 
@@ -242,9 +275,6 @@ class Motorgame {
         this.energy = max(this.energy - 5, 0);
       }
 
-      // 프로펠러 업데이트
-      this.propeller.update(this.acceleration);
-
       // 에너지가 최대치에 도달하면 게임 성공 상태로 전환
       if (this.energy >= this.maxEnergy) {
         this.gameState = "success";
@@ -254,29 +284,24 @@ class Motorgame {
 
   display() {
     if (this.gameState === "playing") {
-      // 프로펠러 그리기
-      // this.propeller.display();
-
       // 에너지 게이지 그리기
       this.drawEnergyGauge(this.energy, this.maxEnergy);
     } else if (this.gameState === "success") {
-      // 게임 성공 화면
+
+      textFont(neoDunggeunmoProFont); // NeoDunggeunmoPro-Regular 폰트 설정
       textSize(64);
       fill(0);
       textAlign(CENTER, CENTER);
       text("게임 성공!", width / 2, height / 2);
 
-      // 다시 도전 버튼 그리기
-      this.drawRetryButton();
-    } else if (this.gameState === "fail") {
-      // 게임 실패 화면
-      textSize(64);
-      fill(0);
-      textAlign(CENTER, CENTER);
-      text("게임 실패", width / 2, height / 2);
+      // 게임 성공 후에도 배터리 이미지를 유지
+      motorBatteryImgNow = 8; // 충전 완료된 배터리 이미지로 설정
+      motorBatteryImg = motorBatteryImgs[motorBatteryImgNow];
+      image(motorBatteryImg, windowWidth / 2 - 455, windowHeight / 2 - 300, 800, 600);
 
       // 다시 도전 버튼 그리기
-      this.drawRetryButton();
+      game2.drawRetryButton();
+  
     }
   }
 
@@ -301,49 +326,8 @@ class Motorgame {
   }
 
   reset() {
-    this.propeller = new Propeller(width / 2, height / 2, 150);
     this.acceleration = 0;
     this.energy = 0;
     this.gameState = "playing";
-  }
-}
-
-// 프로펠러 그리는 class
-class Propeller {
-  constructor(x, y, size) {
-    this.x = x;
-    this.y = y;
-    this.size = size;
-    this.angle = 0;
-    this.speed = 0;
-  }
-
-  update(speed) {
-    this.speed = speed;
-    this.angle += this.speed;
-  }
-
-  display() {
-    push();
-    translate(this.x, this.y);
-    rotate(this.angle);
-    fill(0); // 프로펠러 색을 검정색으로 설정
-
-    // 프로펠러 블레이드 그리기
-    for (let i = 0; i < 6; i++) {
-      rotate(60);
-      this.drawBlade();
-    }
-
-    pop();
-  }
-
-  drawBlade() {
-    let bladeWidth = this.size / 2; // 블레이드의 폭을 조절하는 변수
-    beginShape();
-    vertex(0, 0);
-    vertex(this.size, -bladeWidth / 4);
-    vertex(this.size, bladeWidth / 4);
-    endShape(CLOSE);
   }
 }
